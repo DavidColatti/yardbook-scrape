@@ -1,36 +1,39 @@
+const fs = require("fs");
 const axios = require("axios");
-const ObjectsToCsv = require("objects-to-csv");
+const { convertArrayToCSV } = require("convert-array-to-csv");
 
 const main = async (id, count) => {
-  const scrapedResults = [];
+  const results = [];
+
   for (let i = 0; i < count; i++) {
     try {
       const res = await axios.get(`https://www.yardbook.com/businesses/${id}`);
-      const info = await res.data.match(/\w*=".*- Phone:(.*) - Service/g);
 
-      let string1 = info[0].split('content="')[1];
-      let string2 = string1.split(" - Service")[0];
-      let result = string2.split(" - Phone: ");
+      const str1 = res.data.split('meta name="description"')[1];
+      const str2 = str1.split('<meta name="author"')[0];
+
+      const regex = str2
+        .trim()
+        .replace(/^content="(.*)|^.*/gm, "$1")
+        .trim();
 
       const data = {
-        company_name: result[0],
-        phone_number: result[1],
+        data: regex,
       };
 
-      if (data.phone_number) {
-        scrapedResults.push(data);
-        const csv = new ObjectsToCsv(scrapedResults);
-        await csv.toDisk("./data.csv");
-        console.log(`Successfully scraped ${id}`);
-      } else {
-        console.log(`No Phone Number for ${id}`);
-      }
+      results.push(data);
+
+      const csv = await convertArrayToCSV(results);
+
+      fs.writeFile("./output.csv", csv, () => {});
+
+      console.log(`${i}: Successfully scraped ${id}`);
     } catch (e) {
-      console.log(`No Page Found for ${id}`);
+      console.log(`${i}: Failed to scrape ${id}`);
     }
 
     id++;
   }
 };
 
-main("112511", 5);
+main("112510", 1000);
